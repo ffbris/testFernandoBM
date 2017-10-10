@@ -1,0 +1,716 @@
+---
+title: "Examen parcial - Fernando Felipe Briseño Martínez 171349"
+author: "Fernando Briseño"
+date: "7 de octubre de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require(dplyr, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('dplyr',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+if(!require(ggplot2, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('ggplot2',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+if(!require(purrr, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('purrr',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+if(!require(boot, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('boot',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+if(!require(grid, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('grid',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+if(!require(gridExtra, quietly = TRUE, warn.conflicts = FALSE) ){
+    install.packages('gridExtra',
+	dependencies = TRUE, 
+	repos = "http://cran.us.r-project.org")}
+    
+```
+
+
+
+
+## 1. Manipulación y Visualización de Datos en R
+
+La base de datos iris, contenida en el paquete base de R, contiene las medidas en centímetros de algunos atributos de 50 flores de 3 especies del género Iris:
+
+#### a. ¿Cumple la base de datos el principio de datos limpios? Justifique su respuesta.
+
+De acuerdo con [Wikipedia](https://en.wikipedia.org/wiki/Iris_flower_data_set), el conjunto de datos de flor Iris:
+
+> is a multivariate data set introduced by the British statistician and biologist Ronald Fisher in his 1936 paper The use of multiple measurements in taxonomic problems as an example of linear discriminant analysis. [...] Two of the three species were collected in the Gaspé Peninsula "all from the same pasture, and picked on the same day and measured at the same time by the same person with the same apparatus".
+The data set consists of 50 samples from each of three species of Iris (Iris setosa, Iris virginica and Iris versicolor). Four features were measured from each sample: the length and the width of the sepals and petals, in centimetres. Based on the combination of these four features, Fisher developed a linear discriminant model to distinguish the species from each other.
+
+Al cargar la base de datos y ver su estructura, comprobamos que son cuatro características más una quinta columna que es la especie de iris (que puede intepretarse como una quinta carectarística de cada observación):
+
+```{r, cache = TRUE}
+library(dplyr)
+library(purrr)
+
+BD <- iris
+
+str(BD)
+```
+
+¿Cuáles son los requerimientos para que esta base de datos siga el principio de datos limpios? Examinemos cada uno de ellos y comentemos si esta base de datos la cumple:
+
+| Principio     | Análisis |
+| ------------- | ----------------------------------------------------------------------------- |
+|**1)** Cada variable forma una columna. | En esta base de datos tenemos cinco variables, describiendo cuatro medidas distintas de observaciones flores y una quinta describiendo su especie. Se considera que los datos no están limpios cuando hay dos variables contenidas en una columna, y éste no es el caso. Por lo tanto, **sí, cada variable forma una columna**. |
+|**2)** Cada observación forma un renglón. | Asimismo, cada renglón parece mostrar una observación de una flor medida y clasificada de acuerdo con su especie. Por lo tanto, **sí, cada observación forma un renglón.** |
+|**3)** Cada tipo de unidad observacional forma una tabla. | Finalmente, dado que sólo hay flores observadas en esta tabla de la base de datos, se puede decir que **sí, cada tipo de unidad observacional forma una tabla.** |
+
+
+En suma, puede decirse, dado que se cumplen los principios **(1)**, **(2)** y **(3)**, se puede decir que **la base de datos está limpia.**
+
+
+#### b. En caso de que no cumpla el principio de datos limpios, limpie los datos. Imprima las primeras 6 líneas de los datos limpios (si ya estaban limpios entonces imprima las primeras 6 líneas de los datos originales). 
+
+Dado que ya estaban limpios, las primeras 6 líneas de los datos originales son:
+
+```{r}
+head(BD)
+```
+
+
+### Cada una de las siguientes preguntas requiere utilizar la base de datos con datos limpios del inciso b.:
+
+#### c. ¿Cuántas observaciones y cuántas variables tiene la base de datos?
+
+```{r}
+str(BD)
+```
+
+La base de datos tiene **150 observaciones** y **5 variables**.
+
+#### d. ¿Cuál es la clase atómica de cada una de las variables?
+
+Basándonos en el inciso anterior, se puede observar que la siguiente clase atómica para cada variable:
+
+| Variable | Clase atómica |
+| ------------- | ------------------ |
+| Sepal.Length | Numérica |
+| Sepal.Width | Numérica |
+| Petal.Length | Numérica |
+| Petal.Width | Numérica |
+| Species | Factor |
+
+#### e. Filtre las flores de la especie (variable Species) Setosa e imprima las primeras 6 observaciones.
+
+Lo realizo con el siguiente código:
+```{r}
+head(filter(BD, BD$Species == "setosa"))
+```
+
+
+#### f. Ordene la base de datos de manera descendente con respecto a la variable Petal.Length e imprima las primeras 6 observaciones.
+
+```{r}
+head(arrange(BD, desc(BD$Petal.Length)))
+```
+
+
+#### g. Cree una nueva variable en donde se muestre el atributo Sepal.Length en milímetros e imprima las primeras 6 observaciones.
+
+```{r}
+head(mutate(BD, Sepal.Length.mm = BD$Sepal.Length * 10 ))
+```
+
+#### h. Elimine las observaciones con valores faltantes en la variable Sepal.Width e indique el número de observaciones de la nueva base de datos.
+
+Primero hay que determinar cuál es el valor asignado a la variable Sepal.Width en los valores faltantes.
+
+Revisemos los datos:
+
+```{r}
+BD$Sepal.Width
+```
+
+Al parecer, no existen datos faltantes, por lo que siguen siendo **150 observaciones en total**.
+
+#### i. ¿Cuál es la media de la variable Petal.Width para cada una de las especies (variable Species) de flores?
+
+```{r}
+BD %>% group_by(Species) %>% summarise(promedio = mean(Petal.Width))
+
+```
+
+
+#### j. Realice una gráfica de dispersión de las variables x=Sepal.Length contra y=Sepal.Width en la que se distingan las diferentes especies (variable Species) por color o por forma de los puntos. La gráfica debe incluir título y nombres de los ejes horizontal y vertical.
+
+```{r}
+library(ggplot2)
+
+ggplot(BD, aes(x = Sepal.Length, y = Sepal.Width, colour = Species)) + 
+  geom_point() +
+  ggtitle('Largo vs ancho de los pétalos de iris') +
+  labs(x= 'Largo (cm)', y='Ancho (cm)', colour= 'Especies', caption = 'Basado en la base de datos "Iris" de R') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_jitter() 
+
+```
+
+
+#### k. Realice una gráfica de cajas de la variable Petal.Length en la que se distingan las diferentes especies (variable Species).
+
+```{r}
+ggplot(BD, aes(x = Species, y = Petal.Length)) + 
+    geom_boxplot() +
+    ggtitle('Largo de pétalo por especie') +
+    labs(x= 'Especie', y='Largo (cm)', caption = 'Basado en la base de datos "Iris" de R') +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+## 2. Espacio de Probabilidad y Variables Aleatorias
+
+Considere un experimento que consiste en una carrera de caballos con tres caballos numerados del 1 al 3. Si no está permitido que dos o más caballos lleguen a la meta en la misma posición:
+
+#### a. ¿Cuál es el espacio de resultados $\Omega$ del experimento? 
+
+Sea $p_{i}$ la posición $i={1,2,3}$ y sea $c_{j}$ el caballo $j=1,2,3$
+
+El espacio de resultados es el siguiente:
+
+$$\begin{equation}
+\begin{aligned}
+      \Omega =  \Bigg( & (p_{1}=c_{1}, p_{2}=c_{2}, p_{3}=c_{3}),\\
+                       & (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}),\\
+                       & (p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3}),\\
+                       & (p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1}),\\
+                       & (p_{1}=c_{3}, p_{2}=c_{1}, p_{3}=c_{2}),\\
+                       & (p_{1}=c_{3}, p_{2}=c_{2}, p_{3}=c_{1})\   \Bigg)
+\end{aligned}
+\end{equation}$$
+
+
+Asumiendo que todos los elementos del espacio de resultados $\omega \in \Omega$ tienen la misma probabilidad $P(\omega)$ de ocurrir:
+
+#### b. ¿Cuál es esta probabilidad $P(\omega)$?
+
+Sea la probabilidad del evento equiprobable $\omega$:
+
+$$ P(\omega) = \frac{\#(\omega)}{\#(\Omega)}
+$$
+
+Dado que se determinó que el espacio de resultados $\Omega$ contiene 6 elementos, cada elemento tiene 
+
+$$ P(\omega) = \frac{\#(\omega)}{\#(\Omega)}=\frac{1}{6}
+$$
+
+Si $A$ denota el evento en el que el caballo número 1 llega a la meta dentro de las primeras dos posiciones y $B$ denota el evento en el que el caballo número 3 llega a la meta en la segunda posición...
+
+#### c. ¿Cuáles son los elementos de los eventos $A$ y $B$, respectivamente?
+
+El evento $A$ comprende:
+
+$$\begin{equation}
+\begin{aligned}
+      A =  \Bigg( & (p_{1}=c_{1}, p_{2}=c_{2}, p_{3}=c_{3}),\\
+                  & (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}),\\
+                  & (p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3}),\\
+                  & (p_{1}=c_{3}, p_{2}=c_{1}, p_{3}=c_{2})\ \Bigg)
+\end{aligned}
+\end{equation}$$
+
+El evento $B$ comprende:
+
+$$\begin{equation}
+\begin{aligned}
+      B =  \Bigg( & (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}), (p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1}) \   \Bigg)
+\end{aligned}
+\end{equation}$$
+
+
+#### d. ¿Cuáles son los elementos del evento $A\cap B$?
+
+$$ A \cap B = \Bigg( (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}) \Bigg)$$ 
+ 
+#### e. ¿Cuáles son los elementos del evento $A\cup B$?
+
+$$ \begin{equation}
+\begin{aligned}
+A \cup B =  \\
+            \Bigg( & (p_{1}=c_{1}, p_{2}=c_{2}, p_{3}=c_{3}), (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}), \\
+                   & (p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3}), (p_{1}=c_{3}, p_{2}=c_{1}, p_{3}=c_{2})\ \Bigg) \cup\\
+            \Bigg( & (p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}), (p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1})  \Bigg) 
+\end{aligned}
+\end{equation}
+$$
+
+#### f. ¿Cuál es la probabilidad $P(B)$ de que ocurra el evento $B$?
+
+Basándonos en el cálculo previo de la probabilidad de un evento $\omega$:
+
+$$
+\begin{equation}
+\begin{aligned}
+P(B)= & P(p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2}) + P((p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1})) \\
+      & = P(\omega) + P(\omega) = 2P(\omega)= 2/6=\textbf{1/3}
+\end{aligned}
+\end{equation}
+$$
+
+Sea una $X:\Omega\rightarrow \Re$ variable aleatoria que describe la posición en la que llegó a la meta el caballo número 2:
+
+#### g. Liste los valores $X(\omega)$ que toma la variable $X$ para cada uno de los elementos $\omega \in \Omega$
+
+| Elemento $\omega$ | Valor de $X(\omega)$ |
+|----------|----------------------|
+|$(p_{1}=c_{1}, p_{2}=c_{2}, p_{3}=c_{3})$  | 2 |
+|$(p_{1}=c_{1}, p_{2}=c_{3}, p_{3}=c_{2})$  | 3 |
+|$(p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3})$  | 1 |
+|$(p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1})$  | 1 |
+|$(p_{1}=c_{3}, p_{2}=c_{1}, p_{3}=c_{2})$  | 3 |
+|$(p_{1}=c_{3}, p_{2}=c_{2}, p_{3}=c_{1})$  | 2 |
+
+#### h. ¿Cuál es la probabilidad $P(X=1)$
+
+La probabilidad $P(X=1)$ es la probabilidad de que se realicen los dos eventos $\omega$ en los que el caballo número 2 llega en primer lugar, por lo que, basándonos en la equiprobabilidad de los eventos $\omega$, la probabilidad de este evento es:
+
+$$
+\begin{equation}
+\begin{aligned}
+P(X=1)= & P((p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3})\cup (p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1})) = \\
+        & P((p_{1}=c_{2}, p_{2}=c_{1}, p_{3}=c_{3})) + P((p_{1}=c_{2}, p_{2}=c_{3}, p_{3}=c_{1}))\\
+        & = P(\omega) + P(\omega) = 2P(\omega) = 2(\frac{1}{6}) = \frac{1}{3}
+\end{aligned}
+\end{equation}
+$$
+
+## 3. Probabilidad Condicional
+
+Una inmobiliaria ha determinado que si $X$ es el número de habitaciones de los departamentos que maneja y $Y$ el número de lugares de estacionamiento, entonces la distribución conjunta de las variables $X$ y $Y$ se muestra en la siguiente tabla:
+
+|# habitaciones $X$| 0 lugares	    | 1 lugar	    | 2 lugares	    | 3 lugares	    | 4 lugares	    |Total  |
+|-------|-------|-------|-------|-------|-------|-------|
+|1 	|0.06 	|0.12 	|0.02 	|0.00 	|0.00 	|0.20	|
+|2 	|0.03 	|0.18 	|0.21 	|0.00 	|0.00 	|0.42	|
+|3 	|0.01 	|0.09 	|0.11 	|0.07 	|0.00 	|0.28	|
+|4 	|0.00 	|0.02 	|0.05 	|0.02 	|0.01 	|0.10	|
+|Total	| 0.10 	|0.41 	|0.39 	|0.09 	|0.01 	|1.00	|
+
+
+#### a. ¿Son $X$ y $Y$ variables independientes? Justifique su respuesta.
+
+Si son variables independientes, entonces la probabilidad de la intersección es el producto de las probabilidades. Es decir, si $P(X)\cap P(Y)= P(X)P(Y)$.
+
+Visto de otra forma. Si la multiplicación de cada probabilidad de las distribuciones marginales entre sí es igual (o cercano, supongamos) al que se observa, entonces se puede asumir que las variables son independientes. 
+
+Veamos cómo se hace con los datos:
+
+```{r}
+
+#Convirtamos los datos del problema en datos para R
+hab0 <- c(0.06, 0.03, 0.01, 0   )
+hab1 <- c(0.12, 0.18, 0.09, 0.02)
+hab2 <- c(0.02, 0.21, 0.11, 0.05)
+hab3 <- c(0   ,    0, 0.07, 0.02)
+hab4 <- c(0   ,    0,    0, 0.01) 
+Prob <- cbind(hab0, hab1, hab2, hab3, hab4)
+ProbDf <-data_frame(hab0, hab1, hab2, hab3, hab4)
+
+# Estas son las probabilidades marginales
+TotalY <- c(hab0 + hab1 + hab2 + hab3 + hab4)
+TotalX <- c(sum(hab0), sum(hab1), sum(hab2), sum(hab3), sum(hab4))
+```
+
+
+Veamos la tabla original:
+```{r}
+print(Prob)
+```
+Y comparémosla con cómo serían las probabilidades si las variables fueran independientes, cumpliendo $P(X)\cap P(Y)= P(X)P(Y)$.
+
+```{r}
+print(TotalY %*% t(TotalX))
+```
+A simple vista es notorio que son distintos entre sí, por lo que se puede deducir que **no son variables independientes**.
+
+#### b. Calcule las probabilidades condicionales $P(Y|X = x)$ para $x = 1, 2, 3, 4$
+
+Las probabilidades condicionales $P(Y|X = x)$ para $x = 1, 2, 3, 4$ son las filas de la tabla original, divididas por la probabilidad $P(X=x)$:
+
+```{r}
+marginales <- mutate(ProbDf, TotalY = hab0 + hab1 + hab2 + hab3 + hab4) 
+marginales <- ProbDf/ TotalY
+```
+Probabilidades marginales cuando $X=1$
+```{r}
+print(marginales[1,])
+
+```
+Probabilidades marginales cuando $X=2$
+```{r}
+print(marginales[2,])
+
+```
+Probabilidades marginales cuando $X=3$
+```{r}
+print(marginales[3,])
+
+```
+Probabilidades marginales cuando $X=4$
+```{r}
+print(marginales[4,])
+
+```
+
+
+#### c. Verifique que $P(Y|X = x)$ satisface la segunda regla de probabilidad $\sum^4_{y=0}P(Y=y|X=x)=1$ para $X = 1, 2, 3, 4$
+
+Se verifica que suman uno, cada una de las filas con las probabilidades condicionales del ejercicio anterior:
+ 
+```{r}
+rowSums(marginales)
+```
+
+#### d. Calcule los valores esperados condicionales $E[Y|X = x]$ para $x = 1, 2, 3, 4$.
+
+Multipliquemos cada probabilidad condicionada a $X$ por los valores de $Y = 0,1,2,3,4$
+
+```{r}
+Y<- c(0,1,2,3,4)
+esperados <- data.matrix(marginales) %*% Y
+esperados
+```
+
+Así, los valores esperados condicionales son los siguientes:
+
+$$
+\begin{equation}
+\begin{aligned}
+E[Y|X=1]= 0.80 \\
+E[Y|X=2]= 1.43 \\
+E[Y|X=3]= 1.86 \\
+E[Y|X=4]= 2.20 \\
+\end{aligned}
+\end{equation}
+$$
+
+#### e. Grafique $g(x) = E[Y|X = x]$ para $x = 1, 2, 3, 4$.
+
+```{r}
+X <- c(1,2,3,4)
+DatosGrafica <- data_frame(X, as.vector(esperados))
+
+ggplot(DatosGrafica, aes(x = X, y = esperados)) + 
+  geom_point() +
+  geom_line() +
+  ggtitle('Estacionamientos esperados condicionales') +
+  labs(x= 'Habitaciones', y='Valor esperado condicional') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## 4. Bootstrap
+
+Se desea simular muestras de tamaño 20 de una distribución exponencial con tasa $\beta = 1$. El estadístico de interés $\hat{\theta}$ es el estimador de la media $\ \theta=  \beta $ . Siga el siguiente proceso:
+
+
+
+i. Utilice la función rexp() (y la semilla 261285) para generar una muestra
+aleatoria de tamaño 20 de una distribución exponencial con tasa $\beta = 1$.
+
+```{r}
+set.seed(261285)
+muestra <- rexp(20, rate  = 1)
+glimpse(muestra)
+```
+
+ii. Genere 2,000 muestras bootstrap y calcule intervalos de confianza con coeficiente de confianza de 95% para $\hat{\theta}$ usando 1) el método normal, 2) percentiles y 3) $BC_{a}$.
+
+Teniendo las observaciones del estadístico basado en el muestreo bootstrap, procedemos a calcular los intervalos de confianza, usando la librería boot.
+
+```{r}
+set.seed(261285)
+library(boot)
+
+#Función para obtener la media
+Est <- function(data, indices){
+ return(mean(data[indices]))
+}
+
+# bootstrapping with 2000 replications 
+results <- boot(data=muestra, statistic=Est, R=2000)
+
+# view results
+results 
+plot(results)
+
+# Intervalos de confianza para cada uno de los métodos 
+a <- boot.ci(results, type=c("norm", "perc", "bca"))
+a
+```
+
+
+iii. Revise si el intervalo de confianza contiene el verdadero valor del parámetro $\theta$; en caso de que no lo contenga registre si falló por la izquierda o falló por la derecha. 
+
+Usemos el siguiente código para extraer la 
+
+```{r}
+#Usemos el valor de la Theta verdadera
+
+ThetaVerd <- 1
+
+# Dado que la variable a proviene de la función boot, se pueden extraer los resultados de los intevalos de confianza con $normal, $percent y $bca. De acuerdo con la documentación de la función, para normal, el intervalo de confianza tiene la posición 2 y 3 para normal y 4 y 5 para las otras dos.
+
+if (a$normal[3]> ThetaVerd && a$normal[2]< ThetaVerd){
+  sprintf("Dentro del rango (Normal)")
+} else{
+      sprintf("Fuera del intervalo de confianza")
+      if(a$normal[3]< ThetaVerd){
+      sprintf("Debajo del intervalo de confianza")
+      } else if (a$normal[2]> ThetaVerd){
+      sprintf("Por encima del intervalo de confianza")  
+      }
+} 
+
+  
+if(a$percent[5] > ThetaVerd && a$percent[4] < ThetaVerd){
+  sprintf("Dentro del rango (Percentil)")  
+}else{
+      sprintf("Fuera del intervalo de confianza")
+      if(a$percent[5] < ThetaVerd){
+      sprintf("Debajo del intervalo de confianza")
+      } else if (a$percent[4] > ThetaVerd){
+      sprintf("Por encima del intervalo de confianza")  
+      }  
+}
+
+if(a$bca[5] > ThetaVerd && a$bca[4] < ThetaVerd){
+  sprintf("Dentro del rango (BCa)")  
+}else{
+      sprintf("Fuera del intervalo de confianza")
+      if(a$bca[5] < ThetaVerd){
+      sprintf("Debajo del intervalo de confianza")
+      } else if (a$bca[4] > ThetaVerd){
+      sprintf("Por encima del intervalo de confianza")  
+      }  
+}
+
+```
+
+De acuerdo con el ejercicio anterior, el parámetro verdadero de $\theta$, la media de la función de distribución con valor igual a 1, **se encuentra dentro de los tres intervalos de confianza**.
+
+a. Repita el proceso descrito 500 veces y llena la siguiente tabla:
+
+|Método |% fallo izquierda |% fallo derecha |Cobertura (simulaciones)|
+|-------|------------------|----------------|------------------------|
+|Normal ||||
+|Percentiles|||| 
+|$BC_{a}$||||
+
+La columna Cobertura es una estimación de la cobertura del intervalo basada en las simulaciones; para calcularla simplemente escriba el porcentaje de los intervalos que incluyeron el verdadero valor del parámetro. Recuerde usar la semilla.
+
+```{r, cache=TRUE}
+set.seed(261285)
+library(boot)
+
+Est <- function(data, indices){
+ return(mean(data[indices]))
+}
+resultados <- as.data.frame(matrix(0, ncol = 6, nrow = 500))
+colnames(resultados) <- c("Norminf","Normsup","Percinf","Percsup","BCAinf","BCAsup")
+
+
+#Repetimos el proceso 500 veces
+
+for(i in 1:500){
+    #Generamos una muestra de 20
+    muestra <- rexp(20, rate  = 1)
+    
+    #Repetimos bootstrap, usando la función de la media Est, creada en preguntas anteriores    
+    results <- boot(data=muestra, statistic=Est, R=2000)
+    a <- boot.ci(results, type=c("norm", "perc", "bca"))
+    
+    #Guardamos la información
+    resultados[i,1] <- a$normal[2] 
+    resultados[i,2] <- a$normal[3] 
+      
+    resultados[i,3] <- a$percent[4]
+    resultados[i,4] <- a$percent[5]
+
+    resultados[i,5] <- a$bca[4]
+    resultados[i,6] <- a$bca[5] 
+}    
+
+```
+
+```{r}
+#Usamos los resultados para obtener la información solicitada
+
+resultados$NormRes <- "OK"
+resultados$NormRes[resultados[,1] > ThetaVerd ] <- "debajo"
+resultados$NormRes[resultados[,2] < ThetaVerd ] <- "arriba"
+
+resultados$PercRes <- "OK"
+resultados$PercRes[resultados[,3] > ThetaVerd ] <- "debajo"
+resultados$PercRes[resultados[,4] < ThetaVerd ] <- "arriba"
+
+resultados$BCaRes <- "OK"
+resultados$BCaRes[resultados[,5] > ThetaVerd ] <- "debajo"
+resultados$BCaRes[resultados[,6] < ThetaVerd ] <- "arriba"
+
+table(resultados$NormRes)/500*100
+table(resultados$PercRes)/500*100
+table(resultados$BCaRes)/500*100
+```
+
+
+Por lo tanto, podemos usar la tabla propuesta para responder a esta pregunta:
+
+
+|Método |% fallo izquierda |% fallo derecha |Cobertura (simulaciones)|
+|-------|------------------|----------------|------------------------|
+|Normal |0.8%|9.4%|89.8%|
+|Percentiles|1.8%|8.0%|90.2%| 
+|$BC_{a}$|4.4%|6.2%|89.4%|
+
+Aquí se puede apreciar el efecto de la corrección aplicada por el método $BC_{a}$
+
+Realice una gráfica de paneles: en cada panel mostrará los resultados de uno de los métodos (Normal, Percentil y $BC_{a}$), en el eje horizontal graficará el número de intervalos de confianza (1,2,.,500) y en el eje vertical graficará los límites de los intervalos, es decir, graficará 2 líneas (use la función geom_line): una corresponderá a los límites inferiores de los intervalos y la otra a los superiores.
+
+
+```{r}
+library(gridExtra)
+library(grid)
+library(ggplot2)
+
+
+p1 <- ggplot(resultados, aes(x = as.numeric(row.names(resultados)))) +
+    geom_line(aes(y = Norminf), group=1) + 
+    geom_line(aes(y = Normsup), group=2) +
+    geom_hline(yintercept=1, linetype="dashed", color = "red") +
+    geom_ribbon(data=resultados,aes(ymin=Norminf,ymax=Normsup),fill= "cyan", alpha=0.1) +
+    ggtitle('Normal') +
+    labs(x= 'Intento', y='Parámetro') +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    coord_cartesian(ylim = c(0, 3))
+
+p2 <- ggplot(resultados, aes(x = as.numeric(row.names(resultados)))) +
+    geom_line(aes(y = Percinf), group=1) + 
+    geom_line(aes(y = Percsup), group=2) +
+    geom_hline(yintercept=1, linetype="dashed", color = "red") +
+    geom_ribbon(data=resultados,aes(ymin=Percinf,ymax=Percsup),fill= "cyan", alpha=0.1) +
+    ggtitle('Percentil') +
+    labs(x= 'Intento', y='Parámetro') +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    coord_cartesian(ylim = c(0, 3))
+
+p3 <- ggplot(resultados, aes(x = as.numeric(row.names(resultados)))) +
+    geom_line(aes(y = BCAinf), group=1) + 
+    geom_line(aes(y = BCAsup), group=2) +
+    geom_hline(yintercept=1, linetype="dashed", color = "red") +
+    geom_ribbon(data=resultados,aes(ymin=BCAinf,ymax=BCAsup),fill= "cyan", alpha=0.1) +
+    ggtitle('BCA') +
+    labs(x= 'Intento', y='Parámetro') +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    coord_cartesian(ylim = c(0, 3))
+    
+grid.arrange(p1, p2, p3, ncol = 3, newpage = FALSE)
+
+```
+
+## 5. Simulación de Variables Aleatorias
+
+Una variable aleatoria $X$ tiene una distribución binomial con parámetros n y p, esto es $ X \sim Binomial(n,p) $ si su función de masa de probabilidad es:
+
+$$
+p_{i}:= P[X=i]= \binom{n}{i}p^i(1-p)^{n-i}, i \in \{ 0,1,2,\ldots,n \}
+$$
+
+El objetivo es generar $X$ a partir de una variable aleatoria con distribución uniforme continua en el intervalo (0,1), esto es, $ U \sim Uniforme(0,1) $ utilizando el Método de Transformación Inversa Discreta. La clave para utilizar este método en el presente caso es seguir un procedimiento análogo al que se siguió en clase para la distribución Poisson:
+
+a. Encuentre la relación de recurrencia entre $p_{i+1}$ y $p_{i}$ para i mayor o igual que 0.
+
+Tenemos la fórmula de la función de distribución de la binomial negativa:
+
+$$
+p_{i}:= P[X=i] = \binom{n}{i}p^i(1-p)^{n-i}, i \in \{ 0,1,2,\ldots,n \}
+$$
+
+Para el caso en el que es $P[X=i+1]$
+
+$$
+\begin{equation}
+\begin{aligned}
+p_{i+1}:= P[X=i+1] &= \binom{n}{i+1}p^{i+1}(1-p)^{n-(i+1)} = \frac{n!}{(i+1)!(n-(i+1))!} p^{i+1}(1-p)^{n-(i+1)} \\
+                   &= \Bigg[ \frac{n!}{i!(n-i)!} \Bigg] \Bigg[ \frac{n-i}{1+i} \Bigg] \Bigg[ p^{i}(1-p)^{n-i} \Bigg] \Bigg[ \frac{p}{(1-p)} \Bigg] \\
+                   &= \Bigg[ \frac{n!}{i!(n-i)!} \Bigg] \Bigg[ p^{i}(1-p)^{n-i} \Bigg]  \Bigg[ \frac{n-i}{1+i} \Bigg] \Bigg[ \frac{p}{(1-p)} \Bigg] \\
+                   &= P[X=i] \Bigg[ \frac{n-i}{1+i} \Bigg] \Bigg[ \frac{p}{(1-p)} \Bigg] 
+\end{aligned}
+\end{equation}
+$$
+
+b. Utilizando la relación de recurrencia del inciso a., escriba un algoritmo de 5 pasos que genere una variable aleatoria binomial con parámetros n y p mediante el Método de Transformación Inversa Discreta.
+
+Paso 1: Generar una variable aleatoria U.
+Paso 2: Fijar $c = p/(1 - p)$, $i = 0$, $pr = (1 - p)^n$, and $F = pr$.
+Paso 3: Si $U < F$, fijar $X = i$ y parar.
+Paso 4: Fijar $pr = [c*(n - i)/(i + 1)]pr$, $F = F + pr$, y $i = i + 1$.
+Paso 5: Regresar al paso 3.
+
+c. Escriba en R una función que implemente el algoritmo del inciso b. para n = 10 y p = 0.3.
+
+
+```{r}
+
+NumInt <- 10
+p <- .3
+
+BNsim <- function(n, p){
+
+  U <- runif(1)
+  c <- p/(1-p)
+  i <- 0
+  pr <- (1-p)^n
+  F <- pr
+  
+  while(U >= F){
+    pr <- (c*(n - i)/(i + 1))*pr
+    F <- F + pr
+    i <- i + 1
+  }
+  return(i)
+}
+
+BNsim(NumInt,p)
+```
+
+
+d. Realice 10,000 simulaciones utilizando la semilla 221285 y reporte las primeras 5 simulaciones obtenidas.
+
+```{r}
+set.seed(221285)
+sims_BN <- rerun(10000, BNsim(NumInt,p)) %>% flatten_dbl()
+sims_BN[1:5]
+```
+
+
+e. Genere un histograma con las 10,000 simulaciones anteriores y compárelo con una distribución construida utilizando la función dbinom de R.
+
+```{r}
+x<-c(0,1,2,3,4,5,6,7,8,9)
+BNa <- dbinom(x, 10, .3)
+
+
+BNa
+z <- as.data.frame(table(sims_BN)) %>% mutate(Freq = Freq / sum(Freq))
+z$BNa <- BNa 
+
+ggplot(z, aes(x = sims_BN)) +
+     geom_bar(aes(y = Freq), stat = "identity")  +
+     geom_line(aes(y = BNa), group =2, color = "red")   +
+     ggtitle('Frecuencia de la simulación vs distribución teórica') +
+     labs(x= 'Intento hasta el éxito', y='Frecuencia') +
+     theme(plot.title = element_text(hjust = 0.5))
+
+```
+
